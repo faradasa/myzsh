@@ -39,7 +39,6 @@ python3 setup.py
 | `history-substring-search` | 히스토리 부분 문자열 검색 |
 | `fzf-tab` | Tab 자동완성에 fzf 적용 |
 | `zsh-autosuggestions` | 히스토리 기반 인라인 제안 |
-| `you-should-use` | alias 사용 유도 알림 |
 | `zsh-fzf-history-search` | Ctrl+R fzf 히스토리 검색 |
 | `zsh-syntax-highlighting` | 실시간 명령어 문법 강조 |
 
