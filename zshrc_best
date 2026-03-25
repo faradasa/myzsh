@@ -20,7 +20,6 @@ plugins=(
     history-substring-search
     fzf-tab
     zsh-autosuggestions
-    you-should-use
     zsh-fzf-history-search
     zsh-syntax-highlighting   # must be last
 )
