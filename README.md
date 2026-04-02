@@ -54,6 +54,9 @@ python3 setup.py
 | `zoxide` | `cd` 대체 (스마트 디렉토리 점프) |
 | `lazygit` | 터미널 git TUI |
 | `neovim` | 기본 에디터 |
+| `git-delta` | `git diff`/`log` 등용 구문 강조 diff 뷰어 (`delta` 명령) |
+
+`setup.py`는 `delta`가 PATH에 있으면 `git config --global`로 pager·대화형 diff에 delta를 쓰도록 한 번 설정합니다.
 
 ## 주요 alias / 함수
 

@@ -190,7 +190,17 @@ def install_brew():
 # ─────────────────────────────────────────────────────────────────────────────
 # Step 6: Brew packages
 # ─────────────────────────────────────────────────────────────────────────────
-BREW_PACKAGES = ["eza", "bat", "fzf", "fd", "ripgrep", "zoxide", "lazygit", "neovim"]
+BREW_PACKAGES = [
+    "eza",
+    "bat",
+    "fzf",
+    "fd",
+    "ripgrep",
+    "zoxide",
+    "lazygit",
+    "neovim",
+    "git-delta",
+]
 
 def _brew_cmd():
     """Return the path to brew, checking common locations."""
@@ -229,6 +239,51 @@ def install_brew_packages():
         except subprocess.CalledProcessError as e:
             fail(f"{pkg} install failed: {e}")
             record(f"brew:{pkg}", "fail")
+
+def _delta_binary():
+    """Resolve delta executable (PATH or Homebrew prefix — setup.py may lack brew in PATH)."""
+    w = shutil.which("delta")
+    if w:
+        return w
+    brew = _brew_cmd()
+    if not brew:
+        return None
+    rc, prefix, _ = run_silent(f"{brew} --prefix")
+    if rc != 0 or not prefix:
+        return None
+    candidate = os.path.join(prefix.strip(), "bin", "delta")
+    return candidate if os.path.isfile(candidate) else None
+
+def configure_git_delta():
+    """Set global git options so delta is used for pager and interactive diff."""
+    print("\n       Configuring git to use delta...")
+    if not _delta_binary():
+        skip("delta not found — skipping git config")
+        record("git-delta-config", "skip")
+        return
+    if not shutil.which("git"):
+        skip("git not in PATH — skipping git config")
+        record("git-delta-config", "skip")
+        return
+    configs = [
+        ("core.pager", "delta"),
+        ("interactive.diffFilter", "delta --color-only"),
+        ("merge.conflictStyle", "diff3"),
+        ("diff.colorMoved", "default"),
+        ("delta.navigate", "true"),
+        ("delta.line-numbers", "true"),
+    ]
+    try:
+        for key, value in configs:
+            subprocess.run(
+                ["git", "config", "--global", key, value],
+                check=True,
+            )
+        ok("git configured to use delta")
+        record("git-delta-config", "ok")
+    except subprocess.CalledProcessError as e:
+        fail(f"git config for delta failed: {e}")
+        record("git-delta-config", "fail")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Step 7: NVM
@@ -333,6 +388,7 @@ def main():
     install_plugins()
     install_brew()
     install_brew_packages()
+    configure_git_delta()
     install_nvm()
     install_bun()
     deploy_zshrc()
