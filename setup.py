@@ -200,6 +200,13 @@ BREW_PACKAGES = [
     "lazygit",
     "neovim",
     "git-delta",
+    "dust",
+    "duf",
+    "bottom",
+    "jq",
+    "tldr",
+    "httpie",
+    "hyperfine",
 ]
 
 def _brew_cmd():

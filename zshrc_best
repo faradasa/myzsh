@@ -125,6 +125,61 @@ alias grep='rg'
 command -v fdfind &>/dev/null && alias fd='fdfind'
 
 # ──────────────────────────────────────────────────────────────
+# dust (du replacement)
+# ──────────────────────────────────────────────────────────────
+if command -v dust &>/dev/null; then
+    alias du='dust'
+    alias dus='dust -s'       # summary only
+    alias dud='dust -d 1'     # depth 1
+fi
+
+# ──────────────────────────────────────────────────────────────
+# duf (df replacement)
+# ──────────────────────────────────────────────────────────────
+command -v duf &>/dev/null && alias df='duf'
+
+# ──────────────────────────────────────────────────────────────
+# bottom (system monitor — does NOT shadow 'top')
+# ──────────────────────────────────────────────────────────────
+if command -v btm &>/dev/null; then
+    alias sys='btm'
+    alias sysb='btm --basic'
+fi
+
+# ──────────────────────────────────────────────────────────────
+# jq (JSON processor)
+# ──────────────────────────────────────────────────────────────
+if command -v jq &>/dev/null; then
+    alias jqc='jq -C'    # colorized output
+    alias jqr='jq -r'    # raw output (no quotes)
+fi
+
+# ──────────────────────────────────────────────────────────────
+# tldr (simplified man pages)
+# ──────────────────────────────────────────────────────────────
+command -v tldr &>/dev/null && alias help='tldr'
+
+# ──────────────────────────────────────────────────────────────
+# httpie (curl replacement)
+# ──────────────────────────────────────────────────────────────
+if command -v http &>/dev/null; then
+    alias GET='http GET'
+    alias POST='http POST'
+    alias PUT='http PUT'
+    alias DELETE='http DELETE'
+    alias hj='http --json'       # JSON mode
+    alias hd='http --download'   # download mode
+fi
+
+# ──────────────────────────────────────────────────────────────
+# hyperfine (benchmarking)
+# ──────────────────────────────────────────────────────────────
+if command -v hyperfine &>/dev/null; then
+    alias bench='hyperfine'
+    alias benchw='hyperfine --warmup 3'
+fi
+
+# ──────────────────────────────────────────────────────────────
 # fzf-powered aliases
 # ──────────────────────────────────────────────────────────────
 alias fzp='fzf --preview "${_bat_cmd:-bat} --color=always {}" --preview-window=right:60%'
@@ -138,6 +193,20 @@ fkill() {
   pid=$(ps aux | fzf --header='Select process to kill' | awk '{print $2}')
   [[ -n "$pid" ]] && kill -9 "$pid"
 }
+# fzf + jq: browse JSON files interactively
+if command -v jq &>/dev/null && command -v fd &>/dev/null; then
+  fjq() {
+    local file
+    file=$(fd -e json | fzf --preview 'jq -C . "{}"' --preview-window=right:60%)
+    [[ -n "$file" ]] && jq -C . "$file" | less -R
+  }
+fi
+# fzf + git: fuzzy branch checkout
+fbr() {
+  local branch
+  branch=$(git branch --all --sort=-committerdate | fzf --header='Switch branch' | sed 's/^[* ]*//' | sed 's|remotes/origin/||')
+  [[ -n "$branch" ]] && git checkout "$branch"
+}
 
 # ──────────────────────────────────────────────────────────────
 # Git aliases
@@ -150,6 +219,58 @@ alias gpush='git push -u origin "$(git branch --show-current)"'
 alias gamend='git commit --amend --no-edit'
 alias gwip='git add -A && git commit -m "WIP"'
 alias gunwip='git log -1 --format="%s" | grep -qx "WIP" && git reset HEAD~1'
+# stash: use oh-my-zsh git plugin's gsta/gstp/gstl
+alias gcp='git cherry-pick'
+
+# ──────────────────────────────────────────────────────────────
+# Alias cheatsheet
+# ──────────────────────────────────────────────────────────────
+aliases() {
+  cat <<'CHEAT'
+  ── Files ────────────────────────────────────
+  ls/ll/la/lt/lta  eza variants
+  cat               bat (syntax highlight)
+  du/dus/dud        dust (disk usage)
+  df                duf  (disk free)
+
+  ── Search ───────────────────────────────────
+  grep              ripgrep
+  fd                fd-find
+  fzp               fzf preview
+  fv                fzf → nvim
+  fkill             fzf → kill process
+  fjq               fzf → jq (browse JSON)
+
+  ── System ───────────────────────────────────
+  sys / sysb        bottom (system monitor)
+  bench / benchw    hyperfine (benchmark)
+
+  ── Network ──────────────────────────────────
+  GET/POST/PUT/DELETE  httpie verbs
+  hj / hd           httpie json / download
+
+  ── Data ─────────────────────────────────────
+  jqc / jqr         jq colored / raw
+  help <cmd>        tldr (man alternative)
+
+  ── Git ──────────────────────────────────────
+  lg                lazygit
+  glog              log graph
+  gbr               branches by date
+  gds               diff stat
+  gpush             push current branch
+  gamend            amend last commit
+  gwip / gunwip     WIP commit / undo
+  gst / gsp / gsl   stash / pop / list
+  gcp               cherry-pick
+  fbr               fzf branch checkout
+
+  ── General ──────────────────────────────────
+  c                 clear
+  reload            source ~/.zshrc
+  zshrc             edit ~/.zshrc
+CHEAT
+}
 
 # ──────────────────────────────────────────────────────────────
 # Bun
