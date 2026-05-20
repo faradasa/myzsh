@@ -9,6 +9,7 @@ import platform
 import shutil
 import subprocess
 import sys
+import argparse
 
 # ── ANSI color helpers ────────────────────────────────────────────────────────
 GREEN  = "\033[32m"
@@ -45,6 +46,43 @@ def exists(path):
 
 def home(*parts):
     return os.path.join(os.path.expanduser("~"), *parts)
+
+def _read_text(path):
+    try:
+        with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
+def detect_aws_environment():
+    """Best-effort AWS/EC2 detection without requiring privileged access."""
+    if os.environ.get("AWS_EXECUTION_ENV"):
+        return True, "AWS_EXECUTION_ENV present"
+
+    hypervisor_uuid = _read_text("/sys/hypervisor/uuid").lower()
+    if hypervisor_uuid.startswith("ec2"):
+        return True, "/sys/hypervisor/uuid starts with ec2"
+
+    dmi_candidates = [
+        "/sys/class/dmi/id/sys_vendor",
+        "/sys/class/dmi/id/board_vendor",
+        "/sys/class/dmi/id/chassis_vendor",
+        "/sys/devices/virtual/dmi/id/sys_vendor",
+    ]
+    for p in dmi_candidates:
+        val = _read_text(p).lower()
+        if "amazon ec2" in val or val == "amazon":
+            return True, f"DMI vendor indicates AWS ({p})"
+
+    # Metadata endpoint check with aggressive timeout to avoid hanging.
+    rc, out, _ = run_silent(
+        "curl -fsS --connect-timeout 1 --max-time 1 "
+        "http://169.254.169.254/latest/meta-data/instance-id"
+    )
+    if rc == 0 and out.startswith("i-"):
+        return True, "instance-id returned from IMDS"
+
+    return False, "no AWS indicators detected"
 
 # ── OS detection ──────────────────────────────────────────────────────────────
 OS = platform.system()   # "Linux" or "Darwin"
@@ -160,7 +198,7 @@ def install_plugins():
 # ─────────────────────────────────────────────────────────────────────────────
 # Step 5: Homebrew / Linuxbrew
 # ─────────────────────────────────────────────────────────────────────────────
-def install_brew():
+def install_brew(aws_mode=False):
     print("\n[5/10] Installing Homebrew...")
     if shutil.which("brew"):
         skip("brew already installed")
@@ -168,6 +206,7 @@ def install_brew():
         return
     # Also check common non-PATH locations
     brew_paths = [
+        home(".linuxbrew", "bin", "brew"),
         "/home/linuxbrew/.linuxbrew/bin/brew",
         "/opt/homebrew/bin/brew",
         "/usr/local/bin/brew",
@@ -176,9 +215,33 @@ def install_brew():
         skip("brew binary found (not in PATH yet — will be activated by zshrc)")
         record("homebrew", "skip")
         return
+
+    if aws_mode and IS_LINUX:
+        brew_root = home(".linuxbrew")
+        brew_repo = os.path.join(brew_root, "Homebrew")
+        brew_bin = os.path.join(brew_root, "bin")
+        brew_exe = os.path.join(brew_bin, "brew")
+        try:
+            os.makedirs(brew_bin, exist_ok=True)
+            if not os.path.isdir(brew_repo):
+                run(
+                    f"git clone --depth=1 https://github.com/Homebrew/brew {brew_repo}"
+                )
+            if not os.path.exists(brew_exe):
+                os.symlink("../Homebrew/bin/brew", brew_exe)
+            run(f"{brew_exe} update --force --quiet")
+            os.environ["PATH"] = f"{brew_bin}:{os.environ.get('PATH', '')}"
+            ok("Homebrew installed in ~/.linuxbrew (AWS no-sudo mode)")
+            record("homebrew", "ok")
+            return
+        except (OSError, subprocess.CalledProcessError) as e:
+            fail(f"Homebrew AWS no-sudo install failed: {e}")
+            record("homebrew", "fail")
+            return
+
     try:
         run(
-            '/bin/bash -c "$(curl -fsSL'
+            'NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL'
             ' https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
         )
         ok("Homebrew installed")
@@ -214,6 +277,7 @@ def _brew_cmd():
     if shutil.which("brew"):
         return "brew"
     for p in [
+        home(".linuxbrew", "bin", "brew"),
         "/home/linuxbrew/.linuxbrew/bin/brew",
         "/opt/homebrew/bin/brew",
         "/usr/local/bin/brew",
@@ -221,6 +285,17 @@ def _brew_cmd():
         if os.path.isfile(p):
             return p
     return None
+
+def parse_args(argv):
+    parser = argparse.ArgumentParser(
+        description="Install dependencies for zshrc_best"
+    )
+    parser.add_argument(
+        "--aws",
+        action="store_true",
+        help="Force AWS/EC2 mode (install Homebrew in ~/.linuxbrew without sudo)",
+    )
+    return parser.parse_args(argv)
 
 def install_brew_packages():
     print("\n[6/10] Installing brew packages...")
@@ -385,15 +460,25 @@ def print_summary():
 # Main
 # ─────────────────────────────────────────────────────────────────────────────
 def main():
+    args = parse_args(sys.argv[1:])
+    auto_aws, aws_reason = detect_aws_environment()
+    aws_mode = args.aws or auto_aws
+
     print(f"{'─'*60}")
     print(f"  zshrc_best setup  ({OS})")
     print(f"{'─'*60}")
+    if args.aws:
+        print("  AWS mode: forced via --aws")
+    elif auto_aws:
+        print(f"  AWS mode: auto-detected ({aws_reason})")
+    else:
+        print("  AWS mode: off (use --aws to force no-sudo Linuxbrew path)")
 
     check_prerequisites()
     install_ohmyzsh()
     install_p10k()
     install_plugins()
-    install_brew()
+    install_brew(aws_mode=aws_mode)
     install_brew_packages()
     configure_git_delta()
     install_nvm()
