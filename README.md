@@ -11,6 +11,22 @@ python3 setup.py
 
 완료 후 터미널을 재시작하거나 `source ~/.zshrc`를 실행하세요.
 
+### AWS EC2에서 설치할 때
+
+Homebrew 설치 스크립트나 `chsh`는 `sudo` 비밀번호를 대화식으로 입력받으려고 하기 때문에
+무인(unattended) 환경인 EC2에서는 멈출 수 있습니다. `setup.py`는 EC2를 자동 감지하면
+(또는 `--aws` 플래그를 주면) 다음과 같이 동작합니다:
+
+- Homebrew를 `sudo` 없이 `~/.linuxbrew`에 직접 clone하여 설치
+- 로그인 셸을 `chsh`로 바꾸는 대신 `~/.bashrc`에 zsh 자동 실행 구문을 추가
+
+```bash
+python3 setup.py --aws
+```
+
+플래그 없이 실행해도 `/sys/hypervisor/uuid`, DMI 벤더 정보, 인스턴스 메타데이터 등으로
+EC2 여부를 자동 감지합니다.
+
 ## 설치 항목
 
 `setup.py`가 순서대로 설치합니다 (이미 설치된 항목은 건너뜀):
@@ -21,11 +37,12 @@ python3 setup.py
 | 2 | Oh My Zsh | Zsh 플러그인 프레임워크 |
 | 3 | Powerlevel10k | 빠른 프롬프트 테마 (instant prompt 포함) |
 | 4 | OMZ 커스텀 플러그인 | 아래 플러그인 목록 참고 |
-| 5 | Homebrew / Linuxbrew | 크로스 플랫폼 패키지 매니저 |
+| 5 | Homebrew / Linuxbrew | 크로스 플랫폼 패키지 매니저 (EC2에서는 `~/.linuxbrew`에 sudo 없이 설치) |
 | 6 | Brew 패키지 | 아래 패키지 목록 참고 |
 | 7 | NVM v0.40.1 | Node.js 버전 관리 |
 | 8 | Bun | 빠른 JS 런타임 및 패키지 매니저 |
 | 9 | zshrc 배포 | `zshrc_best` → `~/.zshrc` (기존 파일은 `~/.zshrc.bak`으로 백업) |
+| 10 | zsh 런처 설정 | EC2에서는 `chsh` 대신 `~/.bashrc`에 zsh 자동 실행 구문 추가 |
 
 ### Oh My Zsh 플러그인
 
